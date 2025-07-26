@@ -1,0 +1,136 @@
+const BASE_URL = "http://localhost:8000/api";
+export async function fetchConversations(username) {
+  const response = await fetch(`${BASE_URL}/conversations/${username}`);
+  return await response.json();
+}
+
+export async function fetchMessages(conversationId) {
+  const response = await fetch(`${BASE_URL}/messages/${conversationId}`);
+  return await response.json();
+}
+✅ 2. Component – ConversationHistory.jsx
+📄 frontend/src/components/ConversationHistory.jsx
+
+jsx
+Copy
+Edit
+import React, { useEffect, useContext } from "react";
+import { ChatContext } from "../App";
+import {
+  fetchConversations,
+  fetchMessages,
+} from "../api/historyApi";
+
+export default function ConversationHistory() {
+  const {
+    setMessages,
+    history,
+    setHistory,
+    setConversationId,
+  } = useContext(ChatContext);
+
+  const username = "Neelesh";
+
+  useEffect(() => {
+    fetchConversations(username).then(setHistory);
+  }, []);
+
+  const handleClick = async (session) => {
+    const msgs = await fetchMessages(session.id);
+    const formattedMsgs = msgs.map((m) => ({
+      sender: m.sender,
+      message: m.message,
+    }));
+    setMessages(formattedMsgs);
+    setConversationId(session.id);
+  };
+
+  return (
+    <div className="w-full sm:w-1/3 md:w-1/4 bg-white shadow p-3 rounded-xl mb-4">
+      <h2 className="text-lg font-semibold mb-2">Conversation History</h2>
+      <ul className="space-y-2 overflow-y-auto max-h-64">
+        {history.length === 0 ? (
+          <p className="text-sm text-gray-500">No previous conversations.</p>
+        ) : (
+          history.map((session) => (
+            <li
+              key={session.id}
+              onClick={() => handleClick(session)}
+              className="cursor-pointer p-2 bg-gray-100 rounded hover:bg-gray-200"
+            >
+              Session #{session.id} - {new Date(session.timestamp).toLocaleString()}
+            </li>
+          ))
+        )}
+      </ul>
+    </div>
+  );
+}
+✅ 3. Modify App.jsx to Show Both Panels
+📄 frontend/src/App.jsx
+
+jsx
+Copy
+Edit
+import React, { useState, createContext } from "react";
+import ChatWindow from "./components/ChatWindow";
+import ConversationHistory from "./components/ConversationHistory";
+
+export const ChatContext = createContext();
+
+export default function App() {
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [input, setInput] = useState("");
+  const [conversationId, setConversationId] = useState(null);
+  const [history, setHistory] = useState([]);
+
+  const contextValue = {
+    messages,
+    setMessages,
+    loading,
+    setLoading,
+    input,
+    setInput,
+    conversationId,
+    setConversationId,
+    history,
+    setHistory,
+  };
+
+  return (
+    <ChatContext.Provider value={contextValue}>
+      <div className="min-h-screen bg-gray-100 p-4">
+        <h1 className="text-3xl font-bold mb-4">AI Support Chat</h1>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <ConversationHistory />
+          <ChatWindow />
+        </div>
+      </div>
+    </ChatContext.Provider>
+  );
+}
+🧪 Backend API Endpoints (for FastAPI)
+If not created yet, add these:
+
+/api/conversations/{username}
+python
+Copy
+Edit
+@router.get("/conversations/{username}")
+def get_conversations(username: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        return []
+    return db.query(ConversationSession).filter(
+        ConversationSession.user_id == user.id
+    ).order_by(ConversationSession.id.desc()).all()
+/api/messages/{conversation_id}
+python
+Copy
+Edit
+@router.get("/messages/{conversation_id}")
+def get_messages(conversation_id: int, db: Session = Depends(get_db)):
+    return db.query(ChatMessage).filter(
+        ChatMessage.session_id == conversation_id
+    ).order_by(ChatMessage.timestamp).all()
