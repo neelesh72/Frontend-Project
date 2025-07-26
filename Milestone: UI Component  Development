@@ -1,0 +1,45 @@
+frontend/
+├── public/
+├── src/
+│   ├── App.jsx        
+│   ├── index.js
+│   ├── components/
+│   │   ├── ChatWindow.jsx     
+│   │   ├── MessageBubble.jsx  
+│   │   └── InputBox.jsx       
+│   └── api/
+│       └── chatApi.js         
+
+
+// ✅ Recommended version of App.jsx
+import React, { useState, createContext } from "react";
+import ChatWindow from "./components/ChatWindow";
+
+export const ChatContext = createContext();
+
+export default function App() {
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [input, setInput] = useState("");
+  const [history, setHistory] = useState([]); // for future sessions
+
+  const contextValue = {
+    messages,
+    setMessages,
+    loading,
+    setLoading,
+    input,
+    setInput,
+    history,
+    setHistory,
+  };
+
+  return (
+    <ChatContext.Provider value={contextValue}>
+      <div className="min-h-screen bg-gray-100 p-4">
+        <h1 className="text-3xl font-bold mb-4">AI Support Chat</h1>
+        <ChatWindow />
+      </div>
+    </ChatContext.Provider>
+  );
+}
