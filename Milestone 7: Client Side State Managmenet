@@ -1,0 +1,156 @@
+
+jsx
+Copy
+Edit
+import React, { useState, createContext } from "react";
+import ChatWindow from "./components/ChatWindow";
+
+export const ChatContext = createContext();
+
+export default function App() {
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [input, setInput] = useState("");
+  const [conversationId, setConversationId] = useState(null); // ✅ NEW
+  const [history, setHistory] = useState([]); // Optional
+
+  const contextValue = {
+    messages,
+    setMessages,
+    loading,
+    setLoading,
+    input,
+    setInput,
+    conversationId,
+    setConversationId, // ✅ Include in context
+    history,
+    setHistory,
+  };
+
+  return (
+    <ChatContext.Provider value={contextValue}>
+      <div className="min-h-screen bg-gray-100 p-4">
+        <h1 className="text-3xl font-bold mb-4">AI Support Chat</h1>
+        <ChatWindow />
+      </div>
+    </ChatContext.Provider>
+  );
+}
+✅ 2. Modify API Call to Include conversation_id
+📍 frontend/src/api/chatApi.js
+
+js
+Copy
+Edit
+const API_URL = "http://localhost:8000/api/chat";
+
+export default async function sendMessageToBackend(message, conversationId) {
+  const payload = {
+    username: "Neelesh",
+    message: message,
+    conversation_id: conversationId || null, // ✅ Send current session
+  };
+
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  return await response.json();
+}
+✅ 3. Update ChatWindow Logic to Handle Session
+📍 frontend/src/components/ChatWindow.jsx
+
+jsx
+Copy
+Edit
+import React, { useContext } from "react";
+import { ChatContext } from "../App";
+import sendMessageToBackend from "../api/chatApi";
+
+export default function ChatWindow() {
+  const {
+    messages,
+    setMessages,
+    loading,
+    setLoading,
+    input,
+    setInput,
+    conversationId,
+    setConversationId,
+  } = useContext(ChatContext);
+
+  const handleSend = async () => {
+    if (!input.trim()) return;
+
+    const newMessages = [...messages, { sender: "user", message: input }];
+    setMessages(newMessages);
+    setLoading(true);
+
+    try {
+      // ✅ Send conversationId too
+      const response = await sendMessageToBackend(input, conversationId);
+
+      const botReply = response?.bot_response || "No response";
+
+      // ✅ Set new conversationId if not already set
+      if (!conversationId && response?.conversation_id) {
+        setConversationId(response.conversation_id);
+      }
+
+      setMessages([
+        ...newMessages,
+        { sender: "bot", message: botReply },
+      ]);
+    } catch (err) {
+      setMessages([
+        ...newMessages,
+        { sender: "bot", message: "Error contacting the AI." },
+      ]);
+    }
+
+    setInput("");
+    setLoading(false);
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-md p-4 max-w-2xl mx-auto">
+      <div className="h-80 overflow-y-auto mb-4 space-y-2 flex flex-col">
+        {messages.map((msg, idx) => (
+          <div
+            key={idx}
+            className={`p-2 rounded-md max-w-xs ${
+              msg.sender === "user"
+                ? "bg-blue-100 self-end text-right"
+                : "bg-gray-200 self-start text-left"
+            }`}
+          >
+            {msg.message}
+          </div>
+        ))}
+        {loading && (
+          <div className="italic text-gray-500">Bot is typing...</div>
+        )}
+      </div>
+
+      <div className="flex">
+        <input
+          type="text"
+          className="flex-1 border border-gray-300 rounded-l-md p-2"
+          placeholder="Type your message..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+        />
+        <button
+          className="bg-blue-500 text-white px-4 py-2 rounded-r-md"
+          onClick={handleSend}
+          disabled={loading}
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  );
+}
